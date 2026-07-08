@@ -8,17 +8,19 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{overflow:hidden;background:#000;font-family:'Segoe UI',sans-serif}
 canvas{display:block;position:fixed;top:0;left:0}
-.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:1000;justify-content:center;align-items:center}
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:1000;justify-content:center;align-items:center}
 .modal.active{display:flex}
-.modal-content{background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:20px;padding:30px;max-width:90vw;max-height:90vh;overflow-y:auto;text-align:center;border:2px solid #ffd700;animation:modalIn .3s ease}
+.modal-content{background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:20px;padding:30px 50px;max-width:600px;width:90vw;text-align:center;border:2px solid #ffd700;animation:modalIn .3s ease;position:relative}
 @keyframes modalIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
-.modal-title{color:#ffd700;font-size:2em;margin-bottom:20px}
-.album-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;padding:20px}
-.photo-card{background:#fff;border-radius:12px;overflow:hidden;transition:transform .3s,box-shadow .3s;cursor:pointer;box-shadow:0 4px 15px rgba(0,0,0,0.3)}
-.photo-card:hover{transform:scale(1.05);box-shadow:0 8px 30px rgba(255,215,0,0.4)}
-.photo-card img{width:100%;height:200px;object-fit:cover}
-.photo-caption{padding:12px;background:#333;color:#fff;font-size:.9em;text-align:center}
-.close-btn{position:absolute;top:20px;right:30px;font-size:40px;color:#fff;cursor:pointer;z-index:1001;transition:transform .2s}
+.photo-display{background:#222;border-radius:12px;overflow:hidden;margin-bottom:15px;min-height:300px;display:flex;align-items:center;justify-content:center;position:relative}
+.photo-img{font-size:120px;padding:40px 0}
+.photo-label{color:#ffd700;font-size:1.3em;margin-bottom:5px}
+.photo-index{color:#aaa;font-size:.9em;margin-bottom:15px}
+.nav-row{display:flex;justify-content:center;gap:20px;margin-top:10px}
+.nav-btn{background:rgba(255,215,0,0.15);border:1px solid #ffd700;color:#ffd700;padding:8px 24px;border-radius:8px;cursor:pointer;font-size:1.1em;transition:all .2s}
+.nav-btn:hover{background:rgba(255,215,0,0.3);transform:scale(1.05)}
+.nav-btn:active{transform:scale(.95)}
+.close-btn{position:absolute;top:10px;right:20px;font-size:36px;color:#fff;cursor:pointer;z-index:1001;transition:transform .2s}
 .close-btn:hover{transform:rotate(90deg)}
 </style>
 </head>
@@ -28,8 +30,15 @@ canvas{display:block;position:fixed;top:0;left:0}
 <div class="modal" id="modal">
   <span class="close-btn" onclick="closeModal()">&times;</span>
   <div class="modal-content">
-    <h2 class="modal-title">📸 星空相册</h2>
-    <div class="album-grid" id="albumGrid"></div>
+    <div class="photo-label" id="photoLabel">📸 照片</div>
+    <div class="photo-index" id="photoIndex">1 / 12</div>
+    <div class="photo-display">
+      <div class="photo-img" id="photoImg">🌟</div>
+    </div>
+    <div class="nav-row">
+      <button class="nav-btn" onclick="prevPhoto()">◀ 上一张</button>
+      <button class="nav-btn" onclick="nextPhoto()">下一张 ▶</button>
+    </div>
   </div>
 </div>
 
@@ -41,54 +50,51 @@ let H = canvas.height = window.innerHeight;
 
 // ─── Photo data (configurable!) ───
 const photoData = [
-  { id: 1, label: '我们的第一次约会', color: '#ff6b6b' },
-  { id: 2, label: '海边日出',      color: '#ffd93d' },
-  { id: 3, label: '一起做饭',      color: '#6bcbff' },
-  { id: 4, label: '猫咪出生',      color: '#69ff69' },
-  { id: 5, label: '求婚时刻',      color: '#ff8cff' },
-  { id: 6, label: '新年旅行',      color: '#ffa94d' },
-  { id: 7, label: '家的第一个圣诞', color: '#ff1493' },
-  { id: 8, label: '公园野餐',      color: '#00ffff' },
-  { id: 9, label: '看烟花',        color: '#ff6347' },
-  { id: 10, label: '雨中散步',     color: '#7fff00' },
-  { id: 11, label: '一起读书',     color: '#da70d6' },
-  { id: 12, label: '生日惊喜',     color: '#ffd700' }
+  { id: 1, label: '我们的第一次约会', color: '#ff6b6b', emoji: '💑' },
+  { id: 2, label: '海边日出',      color: '#ffd93d', emoji: '🌅' },
+  { id: 3, label: '一起做饭',      color: '#6bcbff', emoji: '🍳' },
+  { id: 4, label: '猫咪出生',      color: '#69ff69', emoji: '🐱' },
+  { id: 5, label: '求婚时刻',      color: '#ff8cff', emoji: '💍' },
+  { id: 6, label: '新年旅行',      color: '#ffa94d', emoji: '✈️' },
+  { id: 7, label: '家的第一个圣诞', color: '#ff1493', emoji: '🎄' },
+  { id: 8, label: '公园野餐',      color: '#00ffff', emoji: '🧺' },
+  { id: 9, label: '看烟花',        color: '#ff6347', emoji: '🎆' },
+  { id: 10, label: '雨中散步',     color: '#7fff00', emoji: '☔' },
+  { id: 11, label: '一起读书',     color: '#da70d6', emoji: '📚' },
+  { id: 12, label: '生日惊喜',     color: '#ffd700', emoji: '🎂' }
 ];
+
+let currentPhoto = 0;
 
 // ─── Clickable Stars (one per photo) ───
 const clickableStars = [];
 const CLICKABLE_COUNT = photoData.length;
 const colors = ['#ff6b6b','#ffd93d','#6bcbff','#ff8cff','#69ff69','#ffa94d','#7ec8e3','#ffd700','#ff1493','#00ffff','#ff6347','#7fff00','#da70d6','#87ceeb'];
 
-// Place clickable stars in a ring around the screen
 for (let i = 0; i < CLICKABLE_COUNT; i++) {
   const angle = (i / CLICKABLE_COUNT) * Math.PI * 2;
   const dist = Math.min(W, H) * 0.32 + Math.random() * 50;
   clickableStars.push({
     x: W/2 + Math.cos(angle) * dist + (Math.random()-0.5)*40,
     y: H/2 + Math.sin(angle) * dist + (Math.random()-0.5)*40,
-    r: 3 + Math.random() * 1.5,
+    r: 3.5 + Math.random() * 1.5,
     color: photoData[i].color,
-    breathSpeed: 0.015 + Math.random() * 0.015,
+    breathSpeed: 0.018 + Math.random() * 0.015,
     breathPhase: Math.random() * Math.PI * 2,
-    spikeLen: 10 + Math.random() * 6,
-    photoIndex: i,
-    baseX: 0, baseY: 0 // stored after init
+    spikeLen: 12 + Math.random() * 6,
+    photoIndex: i
   });
 }
 
-// ─── Background Stars ───
+// ─── Background Stars (no breath = static) ───
 const bgStars = [];
-const BG_COUNT = 350;
+const BG_COUNT = 300;
 for (let i = 0; i < BG_COUNT; i++) {
   bgStars.push({
     x: Math.random() * W * 2.5 - W * 0.75,
     y: Math.random() * H * 2.5 - H * 0.75,
-    r: Math.random() * 2 + 0.5,
-    color: colors[Math.floor(Math.random() * colors.length)],
-    breathSpeed: Math.random() * 0.02 + 0.005,
-    breathPhase: Math.random() * Math.PI * 2,
-    spikeLen: Math.random() * 8 + 3
+    r: Math.random() * 1.5 + 0.3,
+    color: colors[Math.floor(Math.random() * colors.length)]
   });
 }
 
@@ -99,7 +105,7 @@ const meteorColors = ['#ff6b6b','#ffd93d','#6bcbff','#ff8cff','#69ff69','#ffa94d
 
 function spawnMeteor() {
   const angle = Math.random() * Math.PI * 0.25 - Math.PI * 0.08;
-  const speed = Math.random() * 3 + 2; // slower
+  const speed = Math.random() * 3 + 2;
   const col = meteorColors[Math.floor(Math.random() * meteorColors.length)];
   meteors.push({
     x: Math.random() * W * 1.5 - W * 0.25,
@@ -127,67 +133,49 @@ let earthAngle = 0;
 const earthR = 180;
 const earthCX = W / 2;
 const earthCY = H * 0.75;
-
-// ─── Characters ───
 let walkStep = 0;
 
 function drawEarth() {
   earthAngle += 0.003;
-  ctx.save();
-  ctx.translate(earthCX, earthCY);
-  ctx.rotate(earthAngle);
-
-  const grad = ctx.createRadialGradient(-40, -40, 0, 0, 0, earthR);
-  grad.addColorStop(0, '#1e90ff'); grad.addColorStop(0.5, '#0077cc'); grad.addColorStop(1, '#003366');
-  ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0, 0, earthR, 0, Math.PI * 2); ctx.fill();
-
-  ctx.fillStyle = '#2d8a2d';
-  ctx.beginPath(); ctx.ellipse(-45, -55, 38, 50, -0.15, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(-25, -80, 15, 20, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(-35, 35, 20, 45, 0.1, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(35, -60, 22, 20, 0.3, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(40, 0, 25, 45, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(75, -35, 45, 32, 0.2, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(65, -10, 15, 20, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(105, -45, 10, 18, 0.1, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(85, 55, 22, 16, 0.3, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(0, earthR - 15, 80, 15, 0, 0, Math.PI * 2); ctx.fill();
-
-  ctx.fillStyle = '#8B4513';
-  const bld = (x,y,w,h)=>{ctx.fillRect(x-w/2,y-h,w,h);ctx.fillStyle='#FFD700';for(let i=0;i<3&&i<h/4;i++)for(let j=0;j<2;j++)ctx.fillRect(x-w/4+j*w/2-2,y-h+4+i*5,3,3);ctx.fillStyle='#8B4513';};
+  ctx.save(); ctx.translate(earthCX, earthCY); ctx.rotate(earthAngle);
+  const grad = ctx.createRadialGradient(-40,-40,0,0,0,earthR);
+  grad.addColorStop(0,'#1e90ff');grad.addColorStop(0.5,'#0077cc');grad.addColorStop(1,'#003366');
+  ctx.fillStyle=grad;ctx.beginPath();ctx.arc(0,0,earthR,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#2d8a2d';
+  ctx.beginPath();ctx.ellipse(-45,-55,38,50,-0.15,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(-25,-80,15,20,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(-35,35,20,45,0.1,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(35,-60,22,20,0.3,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(40,0,25,45,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(75,-35,45,32,0.2,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(65,-10,15,20,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(105,-45,10,18,0.1,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(85,55,22,16,0.3,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(0,earthR-15,80,15,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#8B4513';
+  const bld=(x,y,w,h)=>{ctx.fillRect(x-w/2,y-h,w,h);ctx.fillStyle='#FFD700';for(let i=0;i<3&&i<h/4;i++)for(let j=0;j<2;j++)ctx.fillRect(x-w/4+j*w/2-2,y-h+4+i*5,3,3);ctx.fillStyle='#8B4513';};
   bld(-30,-75,7,16);bld(-20,-80,5,12);bld(60,-55,6,14);bld(70,-60,4,10);
   bld(50,-25,6,18);bld(60,-30,5,11);bld(35,20,6,14);bld(45,15,5,10);bld(-25,20,5,12);bld(-15,15,4,9);
-
   ctx.fillStyle='#006400';
   const tree=(x,y,s)=>{ctx.fillStyle='#8B4513';ctx.fillRect(x-2,y,4,s*0.5);ctx.fillStyle='#006400';ctx.beginPath();ctx.arc(x,y-s*0.35,s*0.5,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(x-s*0.35,y-s*0.1,s*0.35,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(x+s*0.35,y-s*0.1,s*0.35,0,Math.PI*2);ctx.fill();};
   tree(-55,-70,9);tree(-40,-65,7);tree(65,-50,8);tree(80,-55,6);tree(55,-20,8);tree(45,-35,7);tree(-25,-45,6);tree(30,25,7);tree(60,40,6);tree(-45,15,6);tree(-35,30,5);
-
   ctx.fillStyle='#DEB887';
   const house=(x,y,s)=>{ctx.fillRect(x-s/2,y-s*0.5,s,s*0.5);ctx.fillStyle='#8B0000';ctx.beginPath();ctx.moveTo(x-s/2-2,y-s*0.5);ctx.lineTo(x,y-s*0.85);ctx.lineTo(x+s/2+2,y-s*0.5);ctx.closePath();ctx.fill();ctx.fillStyle='#FFD700';ctx.fillRect(x-2,y-s*0.25,4,6);ctx.fillStyle='#DEB887';};
   house(5,-85,12);house(75,-45,10);house(-40,-25,10);house(65,30,9);house(-20,35,8);house(90,-50,8);
-
   ctx.fillStyle='rgba(255,255,255,0.2)';
   ctx.beginPath();ctx.arc(-20,20,22,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(0,12,26,0,Math.PI*2);ctx.fill();
   ctx.beginPath();ctx.arc(65,-25,24,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(85,-20,18,0,Math.PI*2);ctx.fill();
   ctx.beginPath();ctx.arc(-50,-40,20,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(50,45,18,0,Math.PI*2);ctx.fill();
-
   const glow=ctx.createRadialGradient(0,0,earthR-20,0,0,earthR+40);
   glow.addColorStop(0,'rgba(100,180,255,0.2)');glow.addColorStop(1,'rgba(100,180,255,0)');
   ctx.fillStyle=glow;ctx.beginPath();ctx.arc(0,0,earthR+40,0,Math.PI*2);ctx.fill();
   ctx.restore();
 }
 
-// ─── Characters ───
 function drawCharacters() {
-  walkStep += 0.04;
-  const bob = Math.sin(walkStep * 2) * 2;
-  const sway = Math.sin(walkStep) * 3;
-  const baseX = earthCX - 35;
-  const baseY = earthCY - earthR - 12;
-
-  // Man
-  ctx.save();
-  ctx.translate(baseX + sway, baseY + bob);
+  walkStep+=0.04;
+  const bob=Math.sin(walkStep*2)*2,sway=Math.sin(walkStep)*3,bx=earthCX-35,by=earthCY-earthR-12;
+  ctx.save();ctx.translate(bx+sway,by+bob);
   ctx.fillStyle='#4169e1';ctx.beginPath();ctx.moveTo(-9,-8);ctx.lineTo(-9,18);ctx.lineTo(9,18);ctx.lineTo(9,-8);ctx.closePath();ctx.fill();
   ctx.fillStyle='#fff';ctx.fillRect(-4,-8,8,3);
   ctx.fillStyle='#f5cba7';ctx.beginPath();ctx.arc(0,-19,13,0,Math.PI*2);ctx.fill();
@@ -201,10 +189,7 @@ function drawCharacters() {
   ctx.fillStyle='#2c3e50';ctx.beginPath();ctx.ellipse(-7,32,6,3.5,0,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.ellipse(7,32,6,3.5,0,0,Math.PI*2);ctx.fill();
   ctx.strokeStyle='#f5cba7';ctx.lineWidth=3.5;ctx.beginPath();ctx.moveTo(-10,-2);ctx.lineTo(-19,7);ctx.stroke();ctx.beginPath();ctx.moveTo(10,-2);ctx.lineTo(19,7);ctx.stroke();
   ctx.restore();
-
-  // Woman
-  ctx.save();
-  ctx.translate(baseX+35-sway,baseY-5+bob*0.8);
+  ctx.save();ctx.translate(bx+35-sway,by-5+bob*0.8);
   ctx.fillStyle='#ff69b4';ctx.beginPath();ctx.moveTo(-13,-8);ctx.lineTo(-18,24);ctx.lineTo(18,24);ctx.lineTo(13,-8);ctx.closePath();ctx.fill();
   ctx.fillStyle='#ff85c8';ctx.beginPath();ctx.moveTo(-10,-8);ctx.lineTo(-10,1);ctx.lineTo(10,1);ctx.lineTo(10,-8);ctx.closePath();ctx.fill();
   ctx.fillStyle='#FFD700';ctx.beginPath();ctx.arc(0,-2,2,0,Math.PI*2);ctx.fill();
@@ -220,11 +205,7 @@ function drawCharacters() {
   ctx.fillStyle='#ff69b4';ctx.beginPath();ctx.ellipse(-6,34,6,3,0,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.ellipse(6,34,6,3,0,0,Math.PI*2);ctx.fill();
   ctx.strokeStyle='#f5cba7';ctx.lineWidth=3.5;ctx.beginPath();ctx.moveTo(-13,-2);ctx.lineTo(-21,6);ctx.stroke();ctx.beginPath();ctx.moveTo(13,-2);ctx.lineTo(21,6);ctx.stroke();
   ctx.restore();
-
-  // Cat
-  ctx.save();
-  const cb=Math.sin(walkStep*2.5)*2.5,cs=Math.sin(walkStep*1.2)*2.5;
-  ctx.translate(baseX+65-cs,baseY+10+cb);
+  ctx.save();const cb=Math.sin(walkStep*2.5)*2.5,cs=Math.sin(walkStep*1.2)*2.5;ctx.translate(bx+65-cs,by+10+cb);
   ctx.fillStyle='#ff8c00';ctx.beginPath();ctx.ellipse(0,0,9,7,0,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(9,-4,7,0,Math.PI*2);ctx.fill();
   ctx.beginPath();ctx.moveTo(4,-10);ctx.lineTo(6,-16);ctx.lineTo(10,-9);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(11,-10);ctx.lineTo(13,-16);ctx.lineTo(16,-9);ctx.closePath();ctx.fill();
   ctx.fillStyle='#ffb6c1';ctx.beginPath();ctx.moveTo(5.5,-10);ctx.lineTo(6,-14);ctx.lineTo(9,-9);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(12,-10);ctx.lineTo(13,-14);ctx.lineTo(15,-9);ctx.closePath();ctx.fill();
@@ -244,10 +225,9 @@ function drawCharacters() {
   ctx.restore();
 }
 
-// ─── Draw a star shape ───
-function drawStarShape(x, y, r, spikeLen, color, alpha) {
-  ctx.save();
-  ctx.translate(x, y);
+// ─── Draw star ───
+function drawStarShape(x,y,r,spikeLen,color,alpha) {
+  ctx.save();ctx.translate(x,y);
   const glow=ctx.createRadialGradient(0,0,0,0,0,r*8);
   const aH=Math.floor(alpha*80).toString(16).padStart(2,'0');
   glow.addColorStop(0,color+aH);glow.addColorStop(1,color+'00');
@@ -260,45 +240,26 @@ function drawStarShape(x, y, r, spikeLen, color, alpha) {
   ctx.restore();
 }
 
-// ─── Background Stars ───
+// ─── Background Stars (static, small, no breath) ───
 function drawBgStars() {
-  const t = Date.now() / 1000;
-  offsetX += (mouseX * 60 - offsetX) * 0.05;
-  offsetY += (mouseY * 60 - offsetY) * 0.05;
-
-  ctx.save();
-  ctx.translate(W/2,H/2);ctx.translate(offsetX,offsetY);ctx.translate(-W/2,-H/2);
-
+  offsetX += (mouseX*60-offsetX)*0.05;
+  offsetY += (mouseY*60-offsetY)*0.05;
+  ctx.save();ctx.translate(W/2,H/2);ctx.translate(offsetX,offsetY);ctx.translate(-W/2,-H/2);
   bgStars.forEach(star => {
-    const breath = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * star.breathSpeed + star.breathPhase));
-    drawStarShape(star.x, star.y, star.r*(0.5+0.5*breath), star.spikeLen*(0.4+0.6*breath), star.color, breath);
+    ctx.fillStyle=star.color;ctx.globalAlpha=0.4+Math.random()*0.1;
+    ctx.beginPath();ctx.arc(star.x,star.y,star.r,0,Math.PI*2);ctx.fill();
   });
-
   ctx.restore();
 }
 
-// ─── Clickable Stars ───
+// ─── Clickable Stars (breathing: pulsing brightness + size) ───
 function drawClickableStars() {
-  const t = Date.now() / 1000;
-  ctx.save();
-  ctx.translate(W/2,H/2);ctx.translate(offsetX,offsetY);ctx.translate(-W/2,-H/2);
-
-  clickableStars.forEach((star, i) => {
-    const breath = 0.5 + 0.5 * Math.sin(t * star.breathSpeed + star.breathPhase);
-    const r = star.r * (0.6 + 0.4 * breath);
-    const spike = star.spikeLen * (0.5 + 0.5 * breath);
-    // Draw slightly larger, with extra glow for clickability
-    drawStarShape(star.x, star.y, r, spike, star.color, breath);
-    // Draw number label
-    ctx.fillStyle = '#fff';
-    ctx.globalAlpha = Math.min(1, breath * 1.5);
-    ctx.font = 'bold 11px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(i + 1, star.x, star.y);
-    ctx.globalAlpha = 1;
+  const t = Date.now()/1000;
+  ctx.save();ctx.translate(W/2,H/2);ctx.translate(offsetX,offsetY);ctx.translate(-W/2,-H/2);
+  clickableStars.forEach(star => {
+    const breath = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t*star.breathSpeed+star.breathPhase));
+    drawStarShape(star.x,star.y,star.r*(0.5+0.5*breath),star.spikeLen*(0.4+0.6*breath),star.color,breath);
   });
-
   ctx.restore();
 }
 
@@ -306,22 +267,17 @@ function drawClickableStars() {
 function drawMeteors() {
   meteorTimer++;
   if(meteorTimer>80+Math.random()*150){spawnMeteor();meteorTimer=0;}
-
-  ctx.save();
-  ctx.translate(W/2,H/2);ctx.translate(offsetX,offsetY);ctx.translate(-W/2,-H/2);
-
+  ctx.save();ctx.translate(W/2,H/2);ctx.translate(offsetX,offsetY);ctx.translate(-W/2,-H/2);
   meteors=meteors.filter(m=>m.life>0);
   meteors.forEach(m=>{
     m.x+=m.vx;m.y+=m.vy;m.life-=0.005;
     ctx.save();ctx.globalAlpha=Math.max(0,m.life);
-    // Tail
     const g=ctx.createLinearGradient(m.x,m.y,m.x-m.vx*5,m.y-m.vy*5);
     const col=m.color;
     g.addColorStop(0,col+'e6');g.addColorStop(0.3,col+'88');g.addColorStop(1,col+'00');
     ctx.strokeStyle=g;ctx.lineWidth=m.r*2;ctx.beginPath();ctx.moveTo(m.x,m.y);ctx.lineTo(m.x-m.vx*7,m.y-m.vy*7);ctx.stroke();
-    // Head star with spikes
-    const breath = 0.7 + 0.3 * Math.sin(Date.now()/1000 * 0.05 + m.life);
-    drawStarShape(m.x, m.y, m.r*(0.6+0.4*breath), m.spikeLen*(0.5+0.5*breath), m.color, 0.9);
+    const breath=0.7+0.3*Math.sin(Date.now()/1000*0.05+m.life);
+    drawStarShape(m.x,m.y,m.r*(0.6+0.4*breath),m.spikeLen*(0.5+0.5*breath),m.color,0.9);
     ctx.restore();
   });
   ctx.restore();
@@ -329,32 +285,36 @@ function drawMeteors() {
 
 // ─── Click handler ───
 canvas.addEventListener('click', e => {
-  const rect = canvas.getBoundingClientRect();
-  const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
-  const rx = cx - offsetX, ry = cy - offsetY;
-  clickableStars.forEach(star => {
-    if(Math.hypot(rx-star.x,ry-star.y) < star.r+15) openAlbum(star.photoIndex);
+  const rect=canvas.getBoundingClientRect();
+  const cx=e.clientX-rect.left,cy=e.clientY-rect.top;
+  const rx=cx-offsetX,ry=cy-offsetY;
+  clickableStars.forEach(star=>{
+    if(Math.hypot(rx-star.x,ry-star.y)<star.r+15) openAlbum(star.photoIndex);
   });
 });
 
-// ─── Album ───
-function renderAlbum(photoIndex) {
-  const grid = document.getElementById('albumGrid');
-  grid.innerHTML = '';
-  // Show all photos, highlight the clicked one
-  photoData.forEach((p, i) => {
-    const card = document.createElement('div');
-    card.className = 'photo-card';
-    const isActive = i === photoIndex;
-    const border = isActive ? '3px solid #ffd700' : 'none';
-    card.style.border = border;
-    card.innerHTML = `<div style="background:${p.color};height:200px;display:flex;align-items:center;justify-content:center;font-size:60px;color:#fff;font-weight:bold;text-shadow:2px 2px 4px rgba(0,0,0,0.5)">${p.id}</div><div class="photo-caption">📸 ${p.label}</div>`;
-    grid.appendChild(card);
-  });
+// ─── Album (single photo view) ───
+function showPhoto(idx) {
+  currentPhoto = idx;
+  const p = photoData[idx];
+  document.getElementById('photoLabel').textContent = `📸 ${p.label}`;
+  document.getElementById('photoIndex').textContent = `${idx+1} / ${photoData.length}`;
+  document.getElementById('photoImg').textContent = p.emoji;
+  document.getElementById('photoImg').style.background = `linear-gradient(135deg, ${p.color}44, ${p.color}22)`;
+}
+
+function prevPhoto() {
+  currentPhoto = (currentPhoto - 1 + photoData.length) % photoData.length;
+  showPhoto(currentPhoto);
+}
+
+function nextPhoto() {
+  currentPhoto = (currentPhoto + 1) % photoData.length;
+  showPhoto(currentPhoto);
 }
 
 function openAlbum(idx) {
-  renderAlbum(idx);
+  showPhoto(idx);
   document.getElementById('modal').classList.add('active');
 }
 
@@ -364,11 +324,7 @@ window.addEventListener('resize',()=>{W=canvas.width=window.innerWidth;H=canvas.
 
 function animate() {
   ctx.fillStyle='rgba(0,0,0,0.3)';ctx.fillRect(0,0,W,H);
-  drawBgStars();
-  drawMeteors();
-  drawClickableStars();
-  drawEarth();
-  drawCharacters();
+  drawBgStars();drawMeteors();drawClickableStars();drawEarth();drawCharacters();
   requestAnimationFrame(animate);
 }
 
