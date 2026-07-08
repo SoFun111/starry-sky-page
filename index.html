@@ -66,29 +66,36 @@ const photoData = [
 
 let currentPhoto = 0;
 
-// ─── Clickable Stars (one per photo) ───
+// ─── Clickable Stars (randomly distributed) ───
 const clickableStars = [];
 const CLICKABLE_COUNT = photoData.length;
 const colors = ['#ff6b6b','#ffd93d','#6bcbff','#ff8cff','#69ff69','#ffa94d','#7ec8e3','#ffd700','#ff1493','#00ffff','#ff6347','#7fff00','#da70d6','#87ceeb'];
 
+// Place clickable stars randomly across the whole canvas area
 for (let i = 0; i < CLICKABLE_COUNT; i++) {
-  const angle = (i / CLICKABLE_COUNT) * Math.PI * 2;
-  const dist = Math.min(W, H) * 0.32 + Math.random() * 50;
+  // Avoid the center area where earth is
+  let x, y, ok;
+  do {
+    x = Math.random() * W * 1.2 - W * 0.1;
+    y = Math.random() * H * 1.2 - H * 0.1;
+    const dx = x - W/2, dy = y - H * 0.75;
+    ok = Math.hypot(dx, dy) > 220; // stay away from earth
+  } while (!ok);
+
   clickableStars.push({
-    x: W/2 + Math.cos(angle) * dist + (Math.random()-0.5)*40,
-    y: H/2 + Math.sin(angle) * dist + (Math.random()-0.5)*40,
-    r: 3.5 + Math.random() * 1.5,
+    x, y,
+    r: 3 + Math.random() * 2,
     color: photoData[i].color,
-    breathSpeed: 0.018 + Math.random() * 0.015,
+    breathSpeed: 0.015 + Math.random() * 0.02,
     breathPhase: Math.random() * Math.PI * 2,
-    spikeLen: 12 + Math.random() * 6,
+    spikeLen: 10 + Math.random() * 8,
     photoIndex: i
   });
 }
 
-// ─── Background Stars (no breath = static) ───
+// ─── Background Stars (lots, random) ───
 const bgStars = [];
-const BG_COUNT = 300;
+const BG_COUNT = 600;
 for (let i = 0; i < BG_COUNT; i++) {
   bgStars.push({
     x: Math.random() * W * 2.5 - W * 0.75,
@@ -240,19 +247,19 @@ function drawStarShape(x,y,r,spikeLen,color,alpha) {
   ctx.restore();
 }
 
-// ─── Background Stars (static, small, no breath) ───
+// ─── Background Stars (static, small) ───
 function drawBgStars() {
   offsetX += (mouseX*60-offsetX)*0.05;
   offsetY += (mouseY*60-offsetY)*0.05;
   ctx.save();ctx.translate(W/2,H/2);ctx.translate(offsetX,offsetY);ctx.translate(-W/2,-H/2);
   bgStars.forEach(star => {
-    ctx.fillStyle=star.color;ctx.globalAlpha=0.4+Math.random()*0.1;
+    ctx.fillStyle=star.color;ctx.globalAlpha=0.3+Math.random()*0.1;
     ctx.beginPath();ctx.arc(star.x,star.y,star.r,0,Math.PI*2);ctx.fill();
   });
   ctx.restore();
 }
 
-// ─── Clickable Stars (breathing: pulsing brightness + size) ───
+// ─── Clickable Stars (breathing) ───
 function drawClickableStars() {
   const t = Date.now()/1000;
   ctx.save();ctx.translate(W/2,H/2);ctx.translate(offsetX,offsetY);ctx.translate(-W/2,-H/2);
@@ -293,7 +300,7 @@ canvas.addEventListener('click', e => {
   });
 });
 
-// ─── Album (single photo view) ───
+// ─── Album ───
 function showPhoto(idx) {
   currentPhoto = idx;
   const p = photoData[idx];
@@ -303,22 +310,10 @@ function showPhoto(idx) {
   document.getElementById('photoImg').style.background = `linear-gradient(135deg, ${p.color}44, ${p.color}22)`;
 }
 
-function prevPhoto() {
-  currentPhoto = (currentPhoto - 1 + photoData.length) % photoData.length;
-  showPhoto(currentPhoto);
-}
-
-function nextPhoto() {
-  currentPhoto = (currentPhoto + 1) % photoData.length;
-  showPhoto(currentPhoto);
-}
-
-function openAlbum(idx) {
-  showPhoto(idx);
-  document.getElementById('modal').classList.add('active');
-}
-
-function closeModal() {document.getElementById('modal').classList.remove('active');}
+function prevPhoto() { currentPhoto=(currentPhoto-1+photoData.length)%photoData.length; showPhoto(currentPhoto); }
+function nextPhoto() { currentPhoto=(currentPhoto+1)%photoData.length; showPhoto(currentPhoto); }
+function openAlbum(idx) { showPhoto(idx); document.getElementById('modal').classList.add('active'); }
+function closeModal() { document.getElementById('modal').classList.remove('active'); }
 
 window.addEventListener('resize',()=>{W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;});
 
