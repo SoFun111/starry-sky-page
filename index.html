@@ -48,7 +48,6 @@ const ctx = canvas.getContext('2d');
 let W = canvas.width = window.innerWidth;
 let H = canvas.height = window.innerHeight;
 
-// ─── Photo data (configurable!) ───
 const photoData = [
   { id: 1, label: '我们的第一次约会', color: '#ff6b6b', emoji: '💑' },
   { id: 2, label: '海边日出',      color: '#ffd93d', emoji: '🌅' },
@@ -66,43 +65,50 @@ const photoData = [
 
 let currentPhoto = 0;
 
-// ─── Colors for random stars ───
 const colors = ['#ff6b6b','#ffd93d','#6bcbff','#ff8cff','#69ff69','#ffa94d','#7ec8e3','#ffd700','#ff1493','#00ffff','#ff6347','#7fff00','#da70d6','#87ceeb'];
 
-// ─── Clickable Stars (randomly distributed, more quantity!) ───
+// ─── Clickable Stars ───
 const clickableStars = [];
-const CLICKABLE_COUNT = photoData.length * 2; // Double! Now 24 clickable stars for 12 photos
+const CLICKABLE_COUNT = photoData.length * 2;
 
 for (let i = 0; i < CLICKABLE_COUNT; i++) {
   let x, y, ok;
   do {
     x = Math.random() * W * 1.2 - W * 0.1;
     y = Math.random() * H * 1.2 - H * 0.1;
-    const dx = x - W/2, dy = y - H * 0.75;
-    ok = Math.hypot(dx, dy) > 220; // Avoid earth area
+    ok = Math.hypot(x - W/2, y - H * 0.75) > 220;
   } while (!ok);
-
   clickableStars.push({
     x, y,
-    r: 3 + Math.random() * 2,
+    baseR: 2.5 + Math.random() * 2.5,
     color: photoData[i % photoData.length].color,
-    breathSpeed: 0.015 + Math.random() * 0.02,
-    breathPhase: Math.random() * Math.PI * 2,
-    spikeLen: 10 + Math.random() * 8,
+    phase: Math.random() * Math.PI * 2,
+    speed: 0.008 + Math.random() * 0.012,
+    spikeLen: 8 + Math.random() * 10,
     photoIndex: i % photoData.length
   });
 }
 
-// ─── Background Stars (lots more, random!) ───
+// ─── Background Stars ───
 const bgStars = [];
-const BG_COUNT = 800; // Increased from 300 to 800!
+const BG_COUNT = 900;
 
 for (let i = 0; i < BG_COUNT; i++) {
+  // Layer: 0=far (0.3), 1=mid (0.6), 2=near (1.0)
+  const layer = Math.random();
+  const layerIdx = layer < 0.4 ? 0 : layer < 0.75 ? 1 : 2;
+  const depthFactors = [0.35, 0.65, 1.0];
+  const depth = depthFactors[layerIdx];
   bgStars.push({
     x: Math.random() * W * 2.5 - W * 0.75,
     y: Math.random() * H * 2.5 - H * 0.75,
-    r: Math.random() * 1.5 + 0.3,
-    color: colors[Math.floor(Math.random() * colors.length)]
+    baseR: (0.3 + Math.random() * 0.5) * (0.5 + depth * 0.5),
+    color: colors[Math.floor(Math.random() * colors.length)],
+    phase: Math.random() * Math.PI * 2,
+    speed: 0.005 + Math.random() * 0.015,
+    depth: depth,
+    hasSpike: layerIdx === 2 && Math.random() < 0.3,
+    spikeLen: 3 + Math.random() * 4
   });
 }
 
@@ -230,41 +236,99 @@ function drawCharacters() {
   ctx.restore();
 }
 
-function drawStarShape(x,y,r,spikeLen,color,alpha) {
-  ctx.save();ctx.translate(x,y);
-  const glow=ctx.createRadialGradient(0,0,0,0,0,r*8);
-  const aH=Math.floor(alpha*80).toString(16).padStart(2,'0');
-  glow.addColorStop(0,color+aH);glow.addColorStop(1,color+'00');
-  ctx.fillStyle=glow;ctx.beginPath();ctx.arc(0,0,r*8,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle=color;ctx.globalAlpha=alpha;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();
-  ctx.strokeStyle=color;ctx.lineWidth=1.2;ctx.globalAlpha=alpha*0.7;
-  for(let a=0;a<4;a++){const ang=a*Math.PI/2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(ang)*spikeLen,Math.sin(ang)*spikeLen);ctx.stroke();}
-  ctx.globalAlpha=alpha*0.35;ctx.lineWidth=0.8;
-  for(let a=0;a<4;a++){const ang=a*Math.PI/2+Math.PI/4;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(ang)*spikeLen*0.5,Math.sin(ang)*spikeLen*0.5);ctx.stroke();}
+// ─── Soft star with glow ───
+function drawSoftStar(x, y, baseR, color, alpha, spikeLen) {
+  const r = Math.max(0.3, baseR);
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Outer glow (soft, wide)
+  const glowR = r * (6 + spikeLen * 0.3);
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, glowR);
+  const col = color;
+  const aHex = Math.floor(alpha * 40).toString(16).padStart(2, '0');
+  g.addColorStop(0, col + aHex);
+  g.addColorStop(0.3, col + Math.floor(alpha * 20).toString(16).padStart(2, '0'));
+  g.addColorStop(1, col + '00');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0, 0, glowR, 0, Math.PI * 2); ctx.fill();
+
+  // Star core
+  ctx.fillStyle = color;
+  ctx.globalAlpha = Math.min(1, alpha * 0.85);
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+
+  // Spikes (very subtle)
+  if (spikeLen > 1) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 0.6;
+    ctx.globalAlpha = alpha * 0.25;
+    for (let a = 0; a < 4; a++) {
+      const ang = a * Math.PI / 2;
+      ctx.beginPath(); ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(ang) * spikeLen, Math.sin(ang) * spikeLen);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = alpha * 0.12;
+    ctx.lineWidth = 0.4;
+    for (let a = 0; a < 4; a++) {
+      const ang = a * Math.PI / 2 + Math.PI / 4;
+      ctx.beginPath(); ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(ang) * spikeLen * 0.4, Math.sin(ang) * spikeLen * 0.4);
+      ctx.stroke();
+    }
+  }
+
   ctx.restore();
 }
 
+// ─── Background Stars (breathing, layered) ───
 function drawBgStars() {
-  offsetX += (mouseX*60-offsetX)*0.05;
-  offsetY += (mouseY*60-offsetY)*0.05;
-  ctx.save();ctx.translate(W/2,H/2);ctx.translate(offsetX,offsetY);ctx.translate(-W/2,-H/2);
+  const t = Date.now() / 1000;
+  offsetX += (mouseX * 60 - offsetX) * 0.05;
+  offsetY += (mouseY * 60 - offsetY) * 0.05;
+
+  // Deep space gradient background
+  const bgGrad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W, H) * 0.8);
+  bgGrad.addColorStop(0, '#0a0a1a');
+  bgGrad.addColorStop(0.5, '#050510');
+  bgGrad.addColorStop(1, '#000005');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.translate(W/2, H/2); ctx.translate(offsetX, offsetY); ctx.translate(-W/2, -H/2);
+
   bgStars.forEach(star => {
-    ctx.fillStyle=star.color;ctx.globalAlpha=0.3+Math.random()*0.1;
-    ctx.beginPath();ctx.arc(star.x,star.y,star.r,0,Math.PI*2);ctx.fill();
+    // Gentle sine breathing, each star has its own phase and speed
+    const breath = 0.6 + 0.4 * (0.5 + 0.5 * Math.sin(t * star.speed + star.phase));
+    const alpha = breath * star.depth * 0.7;
+    const r = star.baseR * (0.7 + 0.3 * breath);
+    const spike = star.hasSpike ? star.spikeLen * (0.6 + 0.4 * breath) : 0;
+    drawSoftStar(star.x, star.y, r, star.color, alpha, spike);
   });
+
   ctx.restore();
 }
 
+// ─── Clickable Stars ───
 function drawClickableStars() {
-  const t = Date.now()/1000;
-  ctx.save();ctx.translate(W/2,H/2);ctx.translate(offsetX,offsetY);ctx.translate(-W/2,-H/2);
+  const t = Date.now() / 1000;
+  ctx.save();
+  ctx.translate(W/2, H/2); ctx.translate(offsetX, offsetY); ctx.translate(-W/2, -H/2);
+
   clickableStars.forEach(star => {
-    const breath = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t*star.breathSpeed+star.breathPhase));
-    drawStarShape(star.x,star.y,star.r*(0.5+0.5*breath),star.spikeLen*(0.4+0.6*breath),star.color,breath);
+    const breath = 0.5 + 0.5 * (0.5 + 0.5 * Math.sin(t * star.speed + star.phase));
+    const alpha = 0.5 + 0.5 * breath;
+    const r = star.baseR * (0.6 + 0.4 * breath);
+    const spike = star.spikeLen * (0.5 + 0.5 * breath);
+    drawSoftStar(star.x, star.y, r, star.color, alpha, spike);
   });
+
   ctx.restore();
 }
 
+// ─── Meteors ───
 function drawMeteors() {
   meteorTimer++;
   if(meteorTimer>80+Math.random()*150){spawnMeteor();meteorTimer=0;}
@@ -278,21 +342,23 @@ function drawMeteors() {
     g.addColorStop(0,col+'e6');g.addColorStop(0.3,col+'88');g.addColorStop(1,col+'00');
     ctx.strokeStyle=g;ctx.lineWidth=m.r*2;ctx.beginPath();ctx.moveTo(m.x,m.y);ctx.lineTo(m.x-m.vx*7,m.y-m.vy*7);ctx.stroke();
     const breath=0.7+0.3*Math.sin(Date.now()/1000*0.05+m.life);
-    drawStarShape(m.x,m.y,m.r*(0.6+0.4*breath),m.spikeLen*(0.5+0.5*breath),m.color,0.9);
+    drawSoftStar(m.x,m.y,m.r*(0.6+0.4*breath),m.color,0.9,m.spikeLen);
     ctx.restore();
   });
   ctx.restore();
 }
 
+// ─── Click handler ───
 canvas.addEventListener('click', e => {
   const rect=canvas.getBoundingClientRect();
   const cx=e.clientX-rect.left,cy=e.clientY-rect.top;
   const rx=cx-offsetX,ry=cy-offsetY;
   clickableStars.forEach(star=>{
-    if(Math.hypot(rx-star.x,ry-star.y)<star.r+15) openAlbum(star.photoIndex);
+    if(Math.hypot(rx-star.x,ry-star.y)<star.baseR+18) openAlbum(star.photoIndex);
   });
 });
 
+// ─── Album ───
 function showPhoto(idx) {
   currentPhoto = idx;
   const p = photoData[idx];
@@ -301,7 +367,6 @@ function showPhoto(idx) {
   document.getElementById('photoImg').textContent = p.emoji;
   document.getElementById('photoImg').style.background = `linear-gradient(135deg, ${p.color}44, ${p.color}22)`;
 }
-
 function prevPhoto() { currentPhoto=(currentPhoto-1+photoData.length)%photoData.length; showPhoto(currentPhoto); }
 function nextPhoto() { currentPhoto=(currentPhoto+1)%photoData.length; showPhoto(currentPhoto); }
 function openAlbum(idx) { showPhoto(idx); document.getElementById('modal').classList.add('active'); }
@@ -310,7 +375,6 @@ function closeModal() { document.getElementById('modal').classList.remove('activ
 window.addEventListener('resize',()=>{W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;});
 
 function animate() {
-  ctx.fillStyle='rgba(0,0,0,0.3)';ctx.fillRect(0,0,W,H);
   drawBgStars();drawMeteors();drawClickableStars();drawEarth();drawCharacters();
   requestAnimationFrame(animate);
 }
