@@ -1,273 +1,536 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>星空与相册</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
-    canvas { display: block; }
-    
-    .modal {
-      display: none;
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.9); z-index: 1000;
-      justify-content: center; align-items: center;
-    }
-    .modal.active { display: flex; }
-    .modal-content {
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      border-radius: 20px; padding: 30px; max-width: 90vw; max-height: 90vh;
-      overflow-y: auto; text-align: center;
-      border: 2px solid #ffd700;
-      animation: modalIn 0.3s ease;
-    }
-    @keyframes modalIn {
-      from { transform: scale(0.8); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
-    }
-    .modal-title { color: #ffd700; font-size: 2em; margin-bottom: 20px; }
-    .album-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 20px; padding: 20px;
-    }
-    .photo-card {
-      background: #fff; border-radius: 10px; overflow: hidden;
-      transition: transform 0.3s; cursor: pointer;
-    }
-    .photo-card:hover { transform: scale(1.05); }
-    .photo-card img {
-      width: 100%; height: 200px; object-fit: cover;
-    }
-    .photo-caption {
-      padding: 10px; background: #333; color: #fff; font-size: 0.9em;
-    }
-    .close-btn {
-      position: absolute; top: 20px; right: 30px;
-      font-size: 40px; color: #fff; cursor: pointer; z-index: 1001;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>星空与相册</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{overflow:hidden;background:#000;font-family:'Segoe UI',sans-serif}
+canvas{display:block;position:fixed;top:0;left:0}
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:1000;justify-content:center;align-items:center}
+.modal.active{display:flex}
+.modal-content{background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:20px;padding:30px;max-width:90vw;max-height:90vh;overflow-y:auto;text-align:center;border:2px solid #ffd700;animation:modalIn .3s ease}
+@keyframes modalIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-title{color:#ffd700;font-size:2em;margin-bottom:20px}
+.album-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;padding:20px}
+.photo-card{background:#fff;border-radius:10px;overflow:hidden;transition:transform .3s;cursor:pointer}
+.photo-card:hover{transform:scale(1.05)}
+.photo-card img{width:100%;height:200px;object-fit:cover}
+.photo-caption{padding:10px;background:#333;color:#fff;font-size:.9em}
+.close-btn{position:absolute;top:20px;right:30px;font-size:40px;color:#fff;cursor:pointer;z-index:1001}
+</style>
 </head>
 <body>
-  <canvas id="space"></canvas>
-  
-  <div class="modal" id="modal">
-    <span class="close-btn" onclick="closeModal()">&times;</span>
-    <div class="modal-content">
-      <h2 class="modal-title">📸 温馨家庭相册</h2>
-      <div class="album-grid" id="albumGrid"></div>
-    </div>
+<canvas id="space"></canvas>
+
+<div class="modal" id="modal">
+  <span class="close-btn" onclick="closeModal()">&times;</span>
+  <div class="modal-content">
+    <h2 class="modal-title">📸 温馨家庭相册</h2>
+    <div class="album-grid" id="albumGrid"></div>
   </div>
+</div>
 
-  <script>
-    const canvas = document.getElementById('space');
-    const ctx = canvas.getContext('2d');
-    let width = canvas.width = window.innerWidth;
-    let height = canvas.height = window.innerHeight;
+<script>
+const canvas = document.getElementById('space');
+const ctx = canvas.getContext('2d');
+let W = canvas.width = window.innerWidth;
+let H = canvas.height = window.innerHeight;
 
-    // Star data
-    const stars = [];
-    const STAR_COUNT = 200;
-    
-    for (let i = 0; i < STAR_COUNT; i++) {
-      stars.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        radius: Math.random() * 2 + 0.5,
-        twinkleSpeed: Math.random() * 0.05 + 0.02,
-        twinkleOffset: Math.random() * Math.PI * 2,
-        isClickable: Math.random() < 0.03, // 3% clickable
-        onClicked: function() { openAlbum(); }
-      });
+// ─── Stars ───
+const stars = [];
+const STAR_COUNT = 300;
+const colors = ['#ff6b6b','#ffd93d','#6bcbff','#ff8cff','#69ff69','#ffa94d','#7ec8e3','#ffd700','#ff1493','#00ffff'];
+
+for (let i = 0; i < STAR_COUNT; i++) {
+  stars.push({
+    x: Math.random() * W * 2 - W * 0.5,
+    y: Math.random() * H * 2 - H * 0.5,
+    r: Math.random() * 2.5 + 1,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    breathSpeed: Math.random() * 0.03 + 0.015,
+    breathPhase: Math.random() * Math.PI * 2,
+    spikeLen: Math.random() * 8 + 4,
+    isClickable: Math.random() < 0.04,
+    onClicked: () => openAlbum()
+  });
+}
+
+// ─── Meteors ───
+let meteors = [];
+let meteorTimer = 0;
+
+function spawnMeteor() {
+  const angle = Math.random() * Math.PI * 0.25 - Math.PI * 0.125;
+  const speed = Math.random() * 6 + 4;
+  meteors.push({
+    x: Math.random() * W * 1.5 - W * 0.25,
+    y: -Math.random() * H * 0.3,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    len: Math.random() * 80 + 60,
+    life: 1,
+    r: Math.random() * 2 + 1.5
+  });
+}
+
+// ─── Mouse parallax (rotation offset) ───
+let mouseNormX = 0, mouseNormY = 0;
+let rotOffsetX = 0, rotOffsetY = 0;
+
+document.addEventListener('mousemove', e => {
+  mouseNormX = (e.clientX / W - 0.5) * 2;
+  mouseNormY = (e.clientY / H - 0.5) * 2;
+});
+
+// ─── Earth ───
+let earthAngle = 0;
+const earthR = 150;
+const earthCX = W / 2;
+const earthCY = H * 0.72;
+
+// ─── Characters ───
+let walkStep = 0;
+
+function drawEarth() {
+  earthAngle += 0.004;
+  ctx.save();
+  ctx.translate(earthCX, earthCY);
+  ctx.rotate(earthAngle);
+
+  // Ocean
+  const grad = ctx.createRadialGradient(-30, -30, 0, 0, 0, earthR);
+  grad.addColorStop(0, '#1e90ff');
+  grad.addColorStop(0.7, '#0066cc');
+  grad.addColorStop(1, '#004080');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(0, 0, earthR, 0, Math.PI * 2); ctx.fill();
+
+  // Continents
+  ctx.fillStyle = '#2d8a2d';
+  // North America
+  ctx.beginPath(); ctx.ellipse(-40, -50, 35, 45, -0.2, 0, Math.PI * 2); ctx.fill();
+  // South America
+  ctx.beginPath(); ctx.ellipse(-30, 30, 18, 35, 0.1, 0, Math.PI * 2); ctx.fill();
+  // Europe
+  ctx.beginPath(); ctx.ellipse(30, -55, 20, 18, 0.3, 0, Math.PI * 2); ctx.fill();
+  // Africa
+  ctx.beginPath(); ctx.ellipse(35, 0, 22, 38, 0, 0, Math.PI * 2); ctx.fill();
+  // Asia
+  ctx.beginPath(); ctx.ellipse(60, -30, 35, 28, 0.2, 0, Math.PI * 2); ctx.fill();
+  // Australia
+  ctx.beginPath(); ctx.ellipse(70, 50, 18, 14, 0.3, 0, Math.PI * 2); ctx.fill();
+
+  // Buildings on land
+  ctx.fillStyle = '#8B4513';
+  drawBuilding(-25, -70, 6, 14);
+  drawBuilding(-15, -75, 4, 10);
+  drawBuilding(50, -50, 5, 12);
+  drawBuilding(60, -55, 3, 8);
+  drawBuilding(40, -20, 5, 15);
+  drawBuilding(50, -25, 4, 9);
+  drawBuilding(30, 15, 5, 12);
+  drawBuilding(40, 10, 4, 8);
+
+  // Trees
+  ctx.fillStyle = '#006400';
+  drawTree(-50, -65, 8);
+  drawTree(-35, -60, 6);
+  drawTree(55, -45, 7);
+  drawTree(70, -50, 5);
+  drawTree(45, -15, 7);
+  drawTree(35, -30, 6);
+  drawTree(-20, -40, 5);
+  drawTree(25, 20, 6);
+  drawTree(50, 35, 5);
+
+  // Houses
+  ctx.fillStyle = '#DEB887';
+  drawHouse(0, -80, 10);
+  drawHouse(65, -40, 8);
+  drawHouse(-35, -20, 9);
+  drawHouse(55, 25, 8);
+
+  // Clouds
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.beginPath(); ctx.arc(-15, 15, 18, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(0, 10, 22, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(55, -20, 20, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(70, -15, 15, 0, Math.PI * 2); ctx.fill();
+
+  // Atmosphere glow
+  const glow = ctx.createRadialGradient(0, 0, earthR - 15, 0, 0, earthR + 30);
+  glow.addColorStop(0, 'rgba(100,180,255,0.25)');
+  glow.addColorStop(1, 'rgba(100,180,255,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(0, 0, earthR + 30, 0, Math.PI * 2); ctx.fill();
+
+  ctx.restore();
+}
+
+function drawBuilding(x, y, w, h) {
+  ctx.fillRect(x - w/2, y - h, w, h);
+  // Windows
+  ctx.fillStyle = '#FFD700';
+  for (let i = 0; i < 3 && i < h / 4; i++) {
+    for (let j = 0; j < 2; j++) {
+      ctx.fillRect(x - w/4 + j * w/2 - 2, y - h + 4 + i * 5, 3, 3);
+    }
+  }
+  ctx.fillStyle = '#8B4513';
+}
+
+function drawTree(x, y, size) {
+  ctx.fillStyle = '#8B4513';
+  ctx.fillRect(x - 2, y, 4, size * 0.5);
+  ctx.fillStyle = '#006400';
+  ctx.beginPath(); ctx.arc(x, y - size * 0.3, size * 0.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x - size * 0.3, y - size * 0.1, size * 0.35, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x + size * 0.3, y - size * 0.1, size * 0.35, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawHouse(x, y, size) {
+  ctx.fillStyle = '#DEB887';
+  ctx.fillRect(x - size/2, y - size * 0.5, size, size * 0.5);
+  ctx.fillStyle = '#8B0000';
+  ctx.beginPath(); ctx.moveTo(x - size/2 - 2, y - size * 0.5);
+  ctx.lineTo(x, y - size * 0.85);
+  ctx.lineTo(x + size/2 + 2, y - size * 0.5);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#FFD700';
+  ctx.fillRect(x - 2, y - size * 0.25, 4, 6);
+}
+
+// ─── Characters ───
+function drawCharacters() {
+  walkStep += 0.04;
+  const bob = Math.sin(walkStep * 2) * 2;
+  const sway = Math.sin(walkStep) * 3;
+  const baseX = earthCX - 30;
+  const baseY = earthCY - earthR - 10;
+
+  // ─── Man ───
+  ctx.save();
+  ctx.translate(baseX + sway, baseY + bob);
+  // Body
+  ctx.fillStyle = '#4169e1';
+  roundRect(-10, -8, 20, 25, 4);
+  ctx.fill();
+  // Head
+  ctx.fillStyle = '#f5cba7';
+  ctx.beginPath(); ctx.arc(0, -18, 12, 0, Math.PI * 2); ctx.fill();
+  // Hair
+  ctx.fillStyle = '#4a3728';
+  ctx.beginPath(); ctx.arc(0, -24, 12, Math.PI, 0); ctx.fill();
+  ctx.fillRect(-12, -24, 24, 4);
+  // Eyes
+  ctx.fillStyle = '#333';
+  ctx.beginPath(); ctx.arc(-4, -18, 2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(4, -18, 2, 0, Math.PI * 2); ctx.fill();
+  // Smile
+  ctx.strokeStyle = '#c0392b';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(0, -14, 4, 0.2, Math.PI - 0.2); ctx.stroke();
+  // Legs
+  ctx.strokeStyle = '#2c3e50';
+  ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(-4, 17); ctx.lineTo(-6, 30); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(4, 17); ctx.lineTo(6, 30); ctx.stroke();
+  // Shoes
+  ctx.fillStyle = '#333';
+  ctx.beginPath(); ctx.ellipse(-6, 30, 5, 3, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(6, 30, 5, 3, 0, 0, Math.PI * 2); ctx.fill();
+  // Arms
+  ctx.strokeStyle = '#f5cba7';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(-10, -2); ctx.lineTo(-18, 6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(10, -2); ctx.lineTo(18, 6); ctx.stroke();
+  ctx.restore();
+
+  // ─── Woman ───
+  ctx.save();
+  ctx.translate(baseX + 30 - sway, baseY - 5 + bob * 0.8);
+  // Dress
+  ctx.fillStyle = '#ff69b4';
+  ctx.beginPath(); ctx.moveTo(-12, -8);
+  ctx.lineTo(-16, 22);
+  ctx.lineTo(16, 22);
+  ctx.lineTo(12, -8);
+  ctx.closePath(); ctx.fill();
+  // Dress top
+  ctx.fillStyle = '#ff85c8';
+  ctx.fillRect(-10, -8, 20, 8);
+  // Head
+  ctx.fillStyle = '#f5cba7';
+  ctx.beginPath(); ctx.arc(0, -18, 11, 0, Math.PI * 2); ctx.fill();
+  // Hair (longer)
+  ctx.fillStyle = '#8B4513';
+  ctx.beginPath(); ctx.arc(0, -23, 11, Math.PI, 0); ctx.fill();
+  ctx.fillRect(-11, -23, 22, 5);
+  // Hair sides
+  ctx.fillRect(-12, -18, 3, 12);
+  ctx.fillRect(9, -18, 3, 12);
+  // Eyes
+  ctx.fillStyle = '#333';
+  ctx.beginPath(); ctx.arc(-3, -18, 2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(3, -18, 2, 0, Math.PI * 2); ctx.fill();
+  // Eyelashes
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-5, -20); ctx.lineTo(-3, -21); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(5, -20); ctx.lineTo(3, -21); ctx.stroke();
+  // Smile
+  ctx.strokeStyle = '#c0392b';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(0, -14, 3.5, 0.2, Math.PI - 0.2); ctx.stroke();
+  // Legs
+  ctx.strokeStyle = '#f5cba7';
+  ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(-4, 22); ctx.lineTo(-5, 32); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(4, 22); ctx.lineTo(5, 32); ctx.stroke();
+  // Shoes
+  ctx.fillStyle = '#ff69b4';
+  ctx.beginPath(); ctx.ellipse(-5, 32, 5, 3, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(5, 32, 5, 3, 0, 0, Math.PI * 2); ctx.fill();
+  // Arms
+  ctx.strokeStyle = '#f5cba7';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(-12, -2); ctx.lineTo(-20, 5); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(12, -2); ctx.lineTo(20, 5); ctx.stroke();
+  ctx.restore();
+
+  // ─── Orange Cat ───
+  ctx.save();
+  const catBob = Math.sin(walkStep * 2.5) * 2;
+  const catSway = Math.sin(walkStep * 1.2) * 2;
+  ctx.translate(baseX + 60 - catSway, baseY + 8 + catBob);
+  // Body
+  ctx.fillStyle = '#ff8c00';
+  ctx.beginPath(); ctx.ellipse(0, 0, 8, 6, 0, 0, Math.PI * 2); ctx.fill();
+  // Head
+  ctx.beginPath(); ctx.arc(8, -4, 6, 0, Math.PI * 2); ctx.fill();
+  // Ears
+  ctx.beginPath(); ctx.moveTo(4, -9); ctx.lineTo(6, -14); ctx.lineTo(9, -8); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(10, -9); ctx.lineTo(12, -14); ctx.lineTo(14, -8); ctx.closePath(); ctx.fill();
+  // Inner ears
+  ctx.fillStyle = '#ffb6c1';
+  ctx.beginPath(); ctx.moveTo(5, -9); ctx.lineTo(6, -12); ctx.lineTo(8, -8); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(11, -9); ctx.lineTo(12, -12); ctx.lineTo(13, -8); ctx.closePath(); ctx.fill();
+  // Eyes
+  ctx.fillStyle = '#333';
+  ctx.beginPath(); ctx.arc(6, -4, 1.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(10, -4, 1.5, 0, Math.PI * 2); ctx.fill();
+  // Nose
+  ctx.fillStyle = '#ff69b4';
+  ctx.beginPath(); ctx.arc(8, -2, 1, 0, Math.PI * 2); ctx.fill();
+  // Whiskers
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(4, -2); ctx.lineTo(0, -4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(4, -1); ctx.lineTo(0, 0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(12, -2); ctx.lineTo(16, -4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(12, -1); ctx.lineTo(16, 0); ctx.stroke();
+  // Tail
+  ctx.strokeStyle = '#ff8c00';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(-8, 0); ctx.quadraticCurveTo(-14, -8, -10, -14); ctx.stroke();
+  // Legs
+  ctx.strokeStyle = '#ff8c00';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(-3, 6); ctx.lineTo(-4, 11); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(3, 6); ctx.lineTo(4, 11); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(7, 6); ctx.lineTo(8, 11); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(11, 6); ctx.lineTo(12, 11); ctx.stroke();
+  // Stripes
+  ctx.strokeStyle = '#cc6600';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-2, -3); ctx.lineTo(-2, 3); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -4); ctx.lineTo(0, 3); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(2, -3); ctx.lineTo(2, 3); ctx.stroke();
+  ctx.restore();
+}
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ─── Stars Drawing ───
+function drawStars() {
+  const t = Date.now() / 1000;
+  // Smooth mouse rotation offset
+  rotOffsetX += (mouseNormX * 40 - rotOffsetX) * 0.03;
+  rotOffsetY += (mouseNormY * 40 - rotOffsetY) * 0.03;
+
+  ctx.save();
+  ctx.translate(W / 2, H / 2);
+  ctx.rotate(rotOffsetX * 0.003);
+  ctx.translate(-W / 2, -H / 2);
+
+  stars.forEach(star => {
+    const breath = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t * star.breathSpeed + star.breathPhase));
+    const alpha = breath;
+    const r = star.r * (0.6 + 0.4 * breath);
+
+    ctx.save();
+    ctx.translate(star.x, star.y);
+
+    // Glow
+    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 6);
+    const col = star.color;
+    glow.addColorStop(0, col + Math.floor(alpha * 80).toString(16).padStart(2, '0'));
+    glow.addColorStop(1, col + '00');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(0, 0, r * 6, 0, Math.PI * 2); ctx.fill();
+
+    // Star core
+    ctx.fillStyle = col;
+    ctx.globalAlpha = alpha;
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+
+    // Star spikes (star cross)
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 0.8;
+    ctx.globalAlpha = alpha * 0.6;
+    const spike = star.spikeLen * (0.5 + 0.5 * breath);
+    for (let a = 0; a < 4; a++) {
+      const angle = a * Math.PI / 2;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(angle) * spike, Math.sin(angle) * spike); ctx.stroke();
+    }
+    // Diagonal spikes
+    ctx.globalAlpha = alpha * 0.3;
+    for (let a = 0; a < 4; a++) {
+      const angle = a * Math.PI / 2 + Math.PI / 4;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(angle) * spike * 0.5, Math.sin(angle) * spike * 0.5); ctx.stroke();
     }
 
-    // Mouse parallax
-    let mouseX = 0, mouseY = 0;
-    let targetX = 0, targetY = 0;
-    
-    document.addEventListener('mousemove', (e) => {
-      mouseX = (e.clientX - width / 2) / 50;
-      mouseY = (e.clientY - height / 2) / 50;
-    });
+    ctx.restore();
+  });
 
-    // Earth rotation
-    let earthAngle = 0;
-    const earthRadius = 80;
-    
-    // Couple position
-    let coupleX = 0, coupleY = -earthRadius - 20;
-    let coupleStep = 0;
-    const coupleWalkSpeed = 0.03;
+  ctx.restore();
+}
 
-    function drawEarth() {
-      earthAngle += 0.005;
-      ctx.save();
-      ctx.translate(width / 2, height / 2);
-      ctx.rotate(earthAngle);
-      
-      // Ocean
-      const gradient = ctx.createRadialGradient(-20, -20, 0, 0, 0, earthRadius);
-      gradient.addColorStop(0, '#1e90ff');
-      gradient.addColorStop(1, '#0066cc');
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.arc(0, 0, earthRadius, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // Continents (simple shapes)
-      ctx.fillStyle = '#228b22';
-      ctx.beginPath();
-      ctx.arc(-30, -20, 25, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(25, 30, 30, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(10, -10, 20, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // Clouds
-      ctx.fillStyle = 'rgba(255,255,255,0.3)';
-      ctx.beginPath();
-      ctx.arc(-10, 10, 15, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(35, -25, 20, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // Atmosphere glow
-      const glow = ctx.createRadialGradient(0, 0, earthRadius - 10, 0, 0, earthRadius + 20);
-      glow.addColorStop(0, 'rgba(100, 150, 255, 0.3)');
-      glow.addColorStop(1, 'rgba(100, 150, 255, 0)');
-      ctx.fillStyle = glow;
-      ctx.beginPath();
-      ctx.arc(0, 0, earthRadius + 20, 0, Math.PI * 2);
-      ctx.fill();
-      
-      ctx.restore();
-    }
+// ─── Meteors ───
+function drawMeteors() {
+  meteorTimer++;
+  if (meteorTimer > 120 + Math.random() * 180) {
+    spawnMeteor();
+    meteorTimer = 0;
+  }
 
-    function drawCouple() {
-      coupleStep += coupleWalkSpeed;
-      const walkAmplitude = 5;
-      coupleX = Math.sin(coupleStep) * walkAmplitude;
-      coupleY = -earthRadius - 20 + Math.sin(coupleStep * 2) * walkAmplitude * 0.5;
+  ctx.save();
+  ctx.translate(W / 2, H / 2);
+  ctx.rotate(rotOffsetX * 0.003);
+  ctx.translate(-W / 2, -H / 2);
 
-      ctx.save();
-      ctx.translate(width / 2 + coupleX, height / 2 + coupleY);
-      
-      // Man character (blue shirt)
-      ctx.fillStyle = '#4169e1'; // shirt
-      ctx.beginPath(); ctx.arc(-8, -15, 10, 0, Math.PI * 2); ctx.fill();
-      ctx.fillRect(-10, -5, 8, 20);
-      ctx.fillStyle = '#deb887';
-      ctx.beginPath(); ctx.arc(-8, 15, 6, 0, Math.PI * 2); ctx.fill(); // legs
-      
-      // Woman character (pink dress)
-      ctx.fillStyle = '#ff69b4'; // dress
-      ctx.beginPath(); ctx.arc(8, -15, 10, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(0, -5);
-      ctx.lineTo(-8, 20); ctx.lineTo(16, 20); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = '#deb887';
-      ctx.beginPath(); ctx.arc(8, 22, 5, 0, Math.PI * 2); ctx.fill(); // feet
-      
-      ctx.restore();
-    }
+  meteors = meteors.filter(m => m.life > 0);
+  meteors.forEach(m => {
+    m.x += m.vx;
+    m.y += m.vy;
+    m.life -= 0.008;
 
-    function drawStars() {
-      const moveX = (targetX - mouseX) * 0.05;
-      const moveY = (targetY - mouseY) * 0.05;
-      targetX = mouseX;
-      targetY = mouseY;
-      
-      stars.forEach((star, index) => {
-        if (!star.isClickable) return;
-        
-        const brightness = 0.5 + 0.5 * Math.sin(Date.now() * star.twinkleSpeed + star.twinkleOffset);
-        ctx.fillStyle = `rgba(255, 255, ${Math.floor(brightness * 200)}, ${brightness})`;
-        ctx.beginPath();
-        ctx.arc(star.x + moveX, star.y + moveY, star.radius, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Glow effect
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = 'yellow';
-        ctx.shadowBlur = 0;
-      });
-    }
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, m.life);
+    // Tail
+    const grad = ctx.createLinearGradient(m.x, m.y, m.x - m.vx * 4, m.y - m.vy * 4);
+    grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+    grad.addColorStop(0.3, 'rgba(255,255,200,0.4)');
+    grad.addColorStop(1, 'rgba(255,255,200,0)');
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = m.r * 2;
+    ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(m.x - m.vx * 5, m.y - m.vy * 5); ctx.stroke();
+    // Head
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  });
 
-    canvas.addEventListener('click', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const clickY = e.clientY - rect.top;
-      
-      stars.forEach(star => {
-        if (!star.isClickable) return;
-        const dist = Math.hypot(clickX - star.x, clickY - star.y);
-        if (dist < star.radius + 5) {
-          star.onClicked();
-        }
-      });
-    });
+  ctx.restore();
+}
 
-    // Sample photos (using emoji + placeholders)
-    const photos = [
-      { emoji: '👨‍👩‍👧', caption: '幸福的一家三口' },
-      { emoji: '❤️', caption: '相爱的每一天' },
-      { emoji: '🏠', caption: '温馨的家' },
-      { emoji: '✈️', caption: '旅行回忆' },
-      { emoji: '🎂', caption: '生日派对' },
-      { emoji: '🌹', caption: '浪漫时刻' },
-      { emoji: '📷', caption: '美好瞬间' },
-      { emoji: '🥂', caption: '庆祝时光' }
-    ];
+// ─── Click handler ───
+canvas.addEventListener('click', e => {
+  const rect = canvas.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
 
-    function renderAlbum() {
-      const grid = document.getElementById('albumGrid');
-      grid.innerHTML = '';
-      photos.forEach(photo => {
-        const card = document.createElement('div');
-        card.className = 'photo-card';
-        card.innerHTML = `
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                      height: 200px; display: flex; align-items: center; justify-content: center;
-                      font-size: 80px;">${photo.emoji}</div>
-          <div class="photo-caption">${photo.caption}</div>
-        `;
-        grid.appendChild(card);
-      });
-    }
+  // Transform click point through inverse rotation
+  const dx = cx - W / 2;
+  const dy = cy - H / 2;
+  const angle = -rotOffsetX * 0.003;
+  const rx = dx * Math.cos(angle) - dy * Math.sin(angle) + W / 2;
+  const ry = dx * Math.sin(angle) + dy * Math.cos(angle) + H / 2;
 
-    function openAlbum() {
-      renderAlbum();
-      document.getElementById('modal').classList.add('active');
-    }
+  stars.forEach(star => {
+    if (!star.isClickable) return;
+    const dist = Math.hypot(rx - star.x, ry - star.y);
+    if (dist < star.r + 8) star.onClicked();
+  });
+});
 
-    function closeModal() {
-      document.getElementById('modal').classList.remove('active');
-    }
+// ─── Album ───
+const photos = [
+  { emoji: '👨‍👩‍👧', caption: '幸福的一家三口' },
+  { emoji: '❤️', caption: '相爱的每一天' },
+  { emoji: '🏠', caption: '温馨的家' },
+  { emoji: '✈️', caption: '旅行回忆' },
+  { emoji: '🎂', caption: '生日派对' },
+  { emoji: '🌹', caption: '浪漫时刻' },
+  { emoji: '📷', caption: '美好瞬间' },
+  { emoji: '🥂', caption: '庆祝时光' }
+];
 
-    // Window resize
-    window.addEventListener('resize', () => {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    });
+function renderAlbum() {
+  const grid = document.getElementById('albumGrid');
+  grid.innerHTML = '';
+  photos.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'photo-card';
+    card.innerHTML = `<div style="background:linear-gradient(135deg,#667eea,#764ba2);height:200px;display:flex;align-items:center;justify-content:center;font-size:80px">${p.emoji}</div><div class="photo-caption">${p.caption}</div>`;
+    grid.appendChild(card);
+  });
+}
 
-    // Animation loop
-    function animate() {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-      ctx.fillRect(0, 0, width, height);
-      
-      drawStars();
-      drawEarth();
-      drawCouple();
-      
-      requestAnimationFrame(animate);
-    }
-    
-    animate();
-    renderAlbum();
-  </script>
+function openAlbum() {
+  renderAlbum();
+  document.getElementById('modal').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('active');
+}
+
+// ─── Resize ───
+window.addEventListener('resize', () => {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+});
+
+// ─── Animation ───
+function animate() {
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(0, 0, W, H);
+
+  drawStars();
+  drawMeteors();
+  drawEarth();
+  drawCharacters();
+
+  requestAnimationFrame(animate);
+}
+
+animate();
+renderAlbum();
+</script>
 </body>
 </html>
